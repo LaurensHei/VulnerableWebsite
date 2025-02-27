@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard</title>
+  <link rel="stylesheet" type="text/css" href="/css/style.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      width: 80%;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #fff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      margin-top: 50px;
+    }
+    h2 {
+      color: #333;
+    }
+    p {
+      font-size: 18px;
+      color: #666;
+    }
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+    ul li {
+      margin: 10px 0;
+    }
+    ul li a {
+      text-decoration: none;
+      background-color: #007BFF;
+      color: white;
+      font-size: 18px;
+      border: 1px solid #007BFF;
+      border-radius: 10px;
+      padding: 5px 10px;
+
+    }
+    ul li a:hover {
+      background-color: #419afa;
+    }
+    .message {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e7f3fe;
+      border: 1px solid #b3d4fc;
+      color: #31708f;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Welcome, <%= username %></h2>
+    <p>Your balance is: $<%= balance %></p>
+    <ul>
+      <li><a href="/transfer">Money Transfer</a></li>
+      <% if (isAdmin) { %>
+        <li><a href="/admin">Admin Control Panel</a></li>
+      <% } %>
+      <li><a href="/logout">Logout</a></li>
+    </ul>
+    <% if (typeof message !== 'undefined' && message) { %>
+      <div class="message"><%- message %></div>
+    <% } %>
+  </div>
+</body>
+</html>

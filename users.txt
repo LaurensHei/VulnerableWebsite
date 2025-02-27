@@ -1,0 +1,2 @@
+user1:password123:1000:user
+admin:adminpass:10000:admin

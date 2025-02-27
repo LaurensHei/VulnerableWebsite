@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Money Transfer</title>
+  <link rel="stylesheet" type="text/css" href="/css/style.css">
+</head>
+<body>
+  <h2 class="centered">Money Transfer</h2>
+  <% if (error) { %>
+    <p style="color:red;"><%= error %></p>
+  <% } %>
+  <% if (message) { %>
+    <p style="color:green;"><%= message %></p>
+  <% } %>
+  <form method="POST" action="/transfer">
+    <label>Recipient Username:</label><br>
+    <input type="text" name="recipient" required><br>
+    <label>Amount:</label><br>
+    <input type="number" name="amount" required><br>
+    <!-- CSRF Vulnerability: No CSRF token included -->
+    <button type="submit">Transfer</button>
+  </form>
+  <a href="/dashboard">Back to Dashboard</a>
+</body>
+</html>

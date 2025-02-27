@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Bank Login</title>
+  <link rel="stylesheet" type="text/css" href="/css/style.css">
+</head>
+<body>
+  <h2 class="centered">Bank Login</h2>
+  <% if (error) { %>
+    <p style="color:red;"><%= error %></p>
+  <% } %>
+  <form method="POST" action="/login">
+    <label>Username:</label><br>
+    <input type="text" name="username" required><br>
+    <label>Password:</label><br>
+    <input type="password" name="password" required><br>
+    <button type="submit">Login</button>
+  </form>
+</body>
+</html>

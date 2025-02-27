@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Admin Control Panel</title>
+    <link rel="stylesheet" type="text/css" href="/css/style.css" />
+  </head>
+  <body>
+    <h2>Admin Control Panel</h2>
+    <h3>User Overview</h3>
+    <table border="1">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Password</th>
+          <th>Balance</th>
+          <th>Role</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% usersData.split('\n').forEach(function(user) { 
+          if (user.trim() !== '') {
+            var userDetails = user.split(':'); %>
+          <tr>
+            <td><%= userDetails[0] %></td>
+            <td><%= userDetails[1] %></td>
+            <td><%= userDetails[2] %></td>
+            <td><%= userDetails[3] %></td>
+          </tr>
+        <% 
+      }
+        }); %>
+      </tbody>
+    </table>
+
+    <a href="/dashboard">Back to Dashboard</a>
+  </body>
+</html>
