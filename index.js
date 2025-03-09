@@ -14,17 +14,28 @@ const { exec } = require("child_process");
 const app = express();
 const PORT = 3000;
 
-// Middleware setup
+const session = require("express-session");
+const crypto = require("crypto");
+
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
+
 app.use(
   session({
-    secret: "insecuresecret", // weak secret key
+    secret: sessionSecret,
     resave: false,
-    saveUninitialized: true,
-    cookie: { maxAge: 60000 }, // short session lifetime for demonstration
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 15 * 60 * 1000, // Set a more reasonable 15-minute session timeout
+      secure: process.env.NODE_ENV === "production", // Secure cookies only in production
+      httpOnly: true, // Prevent access via JavaScript (mitigates XSS attacks)
+      sameSite: "strict", // Prevent CSRF attacks
+    },
   })
 );
+
 
 // Serve static files (CSS, images, etc.)
 app.use(express.static(path.join(__dirname, "public")));
@@ -63,6 +74,15 @@ db.serialize(() => {
   });
 });
 
+// Logging utility
+function logEvent(event, details) {
+  const timestamp = new Date().toISOString();
+  const logEntry = `[${timestamp}] ${event}: ${JSON.stringify(details)}\n`;
+  fs.appendFile("security.log", logEntry, (err) => {
+    if (err) console.error("Failed to write log:", err);
+  });
+}
+
 // Utility: Get user credentials from users.txt
 function getUser(username, callback) {
   fs.readFile("users.txt", "utf8", (err, data) => {
@@ -96,23 +116,34 @@ app.get("/login", (req, res) => {
   res.render("login", { error: null });
 });
 
-// POST /login – Process login (vulnerable: plaintext comparison)
+const bcrypt = require("bcrypt");
+
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
+
   getUser(username, (err, user) => {
     if (err || !user) {
+      logEvent("LOGIN_FAILED", { username, reason: "Invalid credentials" });
       return res.render("login", { error: "Invalid username or password" });
     }
-    // Insecure: Compare plaintext passwords.
-    if (user.password === password) {
+
+    // Secure: Compare hashed passwords
+      bcrypt.compare(password, user.password, (err, isMatch) => {
+      if (err || !isMatch) {
+        logEvent("LOGIN_FAILED", { username, reason: "Incorrect password" });
+        return res.render("login", { error: "Invalid username or password" });
+      }
+
+      logEvent("LOGIN_SUCCESS", { username });
+
+
+      // Set session if login is successful
       req.session.user = { username: user.username, role: user.role };
-      // Note: Session is not regenerated upon login (vulnerable to session hijacking)
       return res.redirect("/dashboard");
-    } else {
-      return res.render("login", { error: "Invalid username or password" });
-    }
+    });
   });
 });
+
 
 // GET /dashboard – User dashboard (requires login)
 app.get("/dashboard", (req, res) => {
@@ -156,6 +187,8 @@ app.post("/transfer", (req, res) => {
   let deductQuery = `UPDATE accounts SET balance = balance - ${amount} WHERE username = '${req.session.user.username}'`;
   db.run(deductQuery, function (err) {
     if (err) {
+      logEvent("TRANSFER_FAILED", { sender, recipient, amount, reason: "Deduction error" });
+
       return res.render("transfer", {
         error: "Transfer failed (deduction)",
         message: null,
@@ -164,11 +197,15 @@ app.post("/transfer", (req, res) => {
     let addQuery = `UPDATE accounts SET balance = balance + ${amount} WHERE username = '${recipient}'`;
     db.run(addQuery, function (err) {
       if (err) {
+        logEvent("TRANSFER_FAILED", { sender, recipient, amount, reason: "Credit error" });
         return res.render("transfer", {
           error: "Transfer failed (credit)",
           message: null,
         });
       }
+
+      logEvent("TRANSFER_SUCCESS", { sender, recipient, amount });
+
       res.render("transfer", {
         error: null,
         message: `Transferred ${amount} to ${recipient}`,
@@ -177,24 +214,39 @@ app.post("/transfer", (req, res) => {
   });
 });
 
-// GET /admin – Admin control panel (broken access control)
 app.get("/admin", (req, res) => {
-  // VULNERABILITY: No proper check to restrict access to admin users.
+  if (!req.session.user || req.session.user.role !== "admin") {
+    logEvent("ADMIN_ACCESS_DENIED", { username: req.session.user?.username || "unknown" });
+    return res.status(403).send("Access denied");
+  }
+
+  logEvent("ADMIN_ACCESS", { username: req.session.user.username });
+
+
   try {
     const filePath = path.join(__dirname, "users.txt");
+
+    // Prevent reading unintended files
+    if (!filePath.startsWith(__dirname)) {
+      return res.status(403).send("Access denied");
+    }
+
     const data = fs.readFileSync(filePath, "utf8");
 
-    // Sanitize output (avoid HTML injection)
+    // Sanitize output to prevent HTML injection
     const sanitizedData = data.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     res.render("admin", { usersData: sanitizedData });
   } catch (err) {
-    res.render("admin", { usersData: "Error reading users.txt" });
+    res.status(500).send("Error loading admin panel");
   }
 });
 
+
 // GET /api/users – Exposed API that returns the raw users file (plaintext credentials)
 app.get("/api/users", (req, res) => {
+  logEvent("API_USERS_ACCESS", { username: req.session.user?.username || "unknown" });
+
   fs.readFile("users.txt", "utf8", (err, data) => {
     if (err) {
       return res.status(500).send("Error reading users file");
@@ -203,33 +255,45 @@ app.get("/api/users", (req, res) => {
   });
 });
 
-// GET /search – SQL injection demonstration endpoint
 app.get("/search", (req, res) => {
   let username = req.query.username || "";
-  // VULNERABILITY: Directly concatenating user input into a SQL query.
-  let query = `SELECT * FROM accounts WHERE username = '${username}'`;
-  db.all(query, [], (err, rows) => {
+
+  let query = "SELECT * FROM accounts WHERE username = ?"; // safe query
+  db.all(query, [username], (err, rows) => {
     if (err) {
-      return res.send("Error in query");
+      return res.status(500).send("Error in query");
     }
     res.json(rows);
   });
 });
 
-// GET /exec – Command injection demonstration endpoint
+const { execFile } = require("child_process");
+
 app.get("/exec", (req, res) => {
   let cmd = req.query.cmd;
   if (!cmd) {
-    return res.send("No command provided");
+    return res.status(400).send("No command provided");
   }
-  // VULNERABILITY: Executing user-supplied command without validation.
-  exec(cmd, (error, stdout, stderr) => {
+
+  // Allowlist: Only allow predefined safe commands
+  const allowedCommands = {
+    "date": ["date"],
+    "uptime": ["uptime"],
+    "ls": ["ls", "-l"]
+  };
+
+  if (!allowedCommands[cmd]) {
+    return res.status(403).send("Forbidden command");
+  }
+
+  execFile(allowedCommands[cmd][0], allowedCommands[cmd].slice(1), (error, stdout, stderr) => {
     if (error) {
-      return res.send(`Error: ${stderr}`);
+      return res.status(500).send("Command execution failed");
     }
     res.send(`<pre>${stdout}</pre>`);
   });
 });
+
 
 // GET /logout – Log out the user.
 app.get("/logout", (req, res) => {
