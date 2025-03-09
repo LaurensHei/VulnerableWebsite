@@ -4,7 +4,6 @@
 
 const express = require("express");
 const bodyParser = require("body-parser");
-const session = require("express-session");
 const cookieParser = require("cookie-parser");
 const fs = require("fs");
 const path = require("path");
@@ -243,17 +242,32 @@ app.get("/admin", (req, res) => {
 });
 
 
-// GET /api/users – Exposed API that returns the raw users file (plaintext credentials)
+// GET /api/users – Secure version (no plaintext credentials)
 app.get("/api/users", (req, res) => {
-  logEvent("API_USERS_ACCESS", { username: req.session.user?.username || "unknown" });
+  if (!req.session.user || req.session.user.role !== "admin") {
+    logEvent("API_USERS_ACCESS_DENIED", { username: req.session.user?.username || "unknown" });
+    return res.status(403).send("Access denied");
+  }
+
+  logEvent("API_USERS_ACCESS", { username: req.session.user.username });
 
   fs.readFile("users.txt", "utf8", (err, data) => {
     if (err) {
       return res.status(500).send("Error reading users file");
     }
-    res.type("text/plain").send(data);
+
+    const users = data
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => {
+        const [username, , balance, role] = line.split(":"); // Skip password field
+        return { username, balance: parseInt(balance), role };
+      });
+
+    res.json(users);
   });
 });
+
 
 app.get("/search", (req, res) => {
   let username = req.query.username || "";

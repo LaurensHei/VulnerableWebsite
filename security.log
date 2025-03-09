@@ -1,0 +1,9 @@
+[2025-03-09T11:08:08.203Z] LOGIN_FAILED: {"username":"admin","reason":"Incorrect password"}
+[2025-03-09T11:08:11.953Z] LOGIN_FAILED: {"username":"admin","reason":"Incorrect password"}
+[2025-03-09T11:08:16.740Z] LOGIN_FAILED: {"username":"user","reason":"Invalid credentials"}
+[2025-03-09T11:08:27.569Z] LOGIN_FAILED: {"username":"admin","reason":"Incorrect password"}
+[2025-03-09T11:09:24.588Z] API_USERS_ACCESS: {"username":"unknown"}
+[2025-03-09T11:29:40.932Z] API_USERS_ACCESS: {"username":"unknown"}
+[2025-03-09T11:29:42.657Z] API_USERS_ACCESS: {"username":"unknown"}
+[2025-03-09T11:29:50.689Z] API_USERS_ACCESS_DENIED: {"username":"unknown"}
+[2025-03-09T11:29:56.831Z] LOGIN_FAILED: {"username":"admin","reason":"Incorrect password"}
